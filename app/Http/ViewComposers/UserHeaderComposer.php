@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\ViewComposers;
 
 use Illuminate\View\View;
@@ -16,8 +17,7 @@ class UserHeaderComposer
     /**
      * Create a new profile composer.
      *
-     * @param  UserRepository  $users
-     * @return void
+     * @param UserRepository|UserRepositoryContract $users
      */
     public function __construct(UserRepositoryContract $users)
     {
@@ -27,8 +27,7 @@ class UserHeaderComposer
     /**
      * Bind data to the view.
      *
-     * @param  View  $view
-     * @return void
+     * @param View $view
      */
     public function compose(View $view)
     {

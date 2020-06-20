@@ -1,11 +1,11 @@
 <?php
+
 namespace App\Repositories\Lead;
 
 interface LeadRepositoryContract
 {
-
     public function find($id);
-    
+
     public function create($requestData);
 
     public function updateStatus($id, $requestData);
@@ -14,7 +14,7 @@ interface LeadRepositoryContract
 
     public function updateAssign($id, $requestData);
 
-    public function allLeads();
+    public function leads();
 
     public function allCompletedLeads();
 
@@ -29,4 +29,6 @@ interface LeadRepositoryContract
     public function createdLeadsMonthly();
 
     public function completedLeadsMonthly();
+
+    public function totalOpenAndClosedLeads($id);
 }

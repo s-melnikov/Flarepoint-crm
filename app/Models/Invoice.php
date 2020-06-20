@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -6,17 +7,30 @@ use Illuminate\Database\Eloquent\Model;
 class Invoice extends Model
 {
     protected $fillable = [
-        'received',
-        'sent',
-        'payment_date'
+        'sent_at',
+        'payment_received_at',
+        'status',
+        'sent_at',
+        'due_at',
+        'client_id',
     ];
-    public function clients()
+
+    public function client()
     {
-        return $this->belongsToMany(Client::class);
+        return $this->belongsTo(Client::class);
     }
-    public function tasktime()
+
+    public function invoiceLines()
     {
-        return $this->belongsToMany(TaskTime::class)
-        ;
+        return $this->hasMany(InvoiceLine::class);
+    }
+
+    public function canUpdateInvoice()
+    {
+        if (null != $this->sent_at) {
+            return false;
+        }
+
+        return true;
     }
 }

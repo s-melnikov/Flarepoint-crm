@@ -1,9 +1,9 @@
 <?php
+
 namespace App\Repositories\Role;
 
 interface RoleRepositoryContract
 {
-    
     public function listAllRoles();
 
     public function allPermissions();

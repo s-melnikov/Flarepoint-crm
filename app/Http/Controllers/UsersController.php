@@ -1,23 +1,22 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Gate;
 use Carbon;
 use Datatables;
 use App\Models\User;
-use App\Models\Tasks;
-use App\Http\Requests;
+use App\Models\Task;
 use App\Models\Client;
+use App\Models\Lead;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use PHPZen\LaravelRbac\Traits\Rbac;
-use Illuminate\Support\Facades\Input;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Repositories\User\UserRepositoryContract;
 use App\Repositories\Role\RoleRepositoryContract;
 use App\Repositories\Department\DepartmentRepositoryContract;
 use App\Repositories\Setting\SettingRepositoryContract;
+use App\Repositories\Task\TaskRepositoryContract;
+use App\Repositories\Lead\LeadRepositoryContract;
 
 class UsersController extends Controller
 {
@@ -30,180 +29,310 @@ class UsersController extends Controller
         UserRepositoryContract $users,
         RoleRepositoryContract $roles,
         DepartmentRepositoryContract $departments,
-        SettingRepositoryContract $settings
+        SettingRepositoryContract $settings,
+        TaskRepositoryContract $tasks,
+        LeadRepositoryContract $leads
     ) {
-        $this->users = $users;
-        $this->roles = $roles;
+        $this->users       = $users;
+        $this->roles       = $roles;
         $this->departments = $departments;
-        $this->settings = $settings;
+        $this->settings    = $settings;
+        $this->tasks       = $tasks;
+        $this->leads       = $leads;
         $this->middleware('user.create', ['only' => ['create']]);
     }
 
     /**
-     * Display a listing of the resource.
-     *
-     * @return Response
+     * @return mixed
      */
     public function index()
     {
-        return view('users.index');
+        return view('users.index')
+            ->with('users', User::orderBy('name')->get()->pluck('name', 'id'));
+    }
+
+    public function users()
+    {
+        return User::all();
     }
 
     public function anyData()
     {
         $canUpdateUser = auth()->user()->can('update-user');
-        $users = User::select(['id', 'name', 'email', 'work_number']);
+        $users         = User::select(['id', 'name', 'email', 'work_number']);
+
         return Datatables::of($users)
-        ->addColumn('namelink', function ($users) {
-                return '<a href="users/'.$users->id.'" ">'.$users->name.'</a>';
-        })
-
-        ->add_column('edit', '
-                <a href="{{ route(\'users.edit\', $id) }}" class="btn btn-success" >Edit</a>')
-        ->add_column('delete', '
-                <form action="{{ route(\'users.destroy\', $id) }}" method="POST">
-            <input type="hidden" name="_method" value="DELETE">
-            <input type="submit" name="submit" value="Delete" class="btn btn-danger" onClick="return confirm(\'Are you sure?\')"">
-
-            {{csrf_field()}}
-            </form>')
-        ->make(true);
+            ->addColumn('namelink', function ($users) {
+                return '<a href="users/'.$users->id.'">'.$users->name.'</a>';
+            })
+            ->addColumn('edit', function ($user) {
+                return '<a href="'.route('users.edit', $user->id).'" class="btn btn-success"> Edit</a>';
+            })
+            ->add_column('delete', function ($user) {
+                return '<button type="button" class="btn btn-danger delete_client" data-client_id="'.$user->id.'" data-toggle="modal" data-target="#myModal">Delete</button>';
+            })->make(true);
     }
-
-    public function taskData($id)
-    {
-        $tasks = Tasks::select(
-            ['id', 'title', 'created_at', 'deadline', 'fk_user_id_assign']
-        )
-        ->where('fk_user_id_assign', $id)->where('status', 1);
-        return Datatables::of($tasks)
-        ->addColumn('titlelink', function ($tasks) {
-                return '<a href="' . route('tasks.show', $tasks->id). '">'.$tasks->title.'</a>';
-        })
-        ->editColumn('created_at', function ($tasks) {
-                return $tasks->created_at ? with(new Carbon($tasks->created_at))
-                ->format('d/m/Y') : '';
-        })
-        ->editColumn('deadline', function ($tasks) {
-                return $tasks->created_at ? with(new Carbon($tasks->created_at))
-                ->format('d/m/Y') : '';
-        })
-        ->make(true);
-    }
-
-    public function closedTaskData($id)
-    {
-        $tasks = Tasks::select(
-            ['id', 'title', 'created_at', 'deadline', 'fk_user_id_assign']
-        )
-        ->where('fk_user_id_assign', $id)->where('status', 2);
-        return Datatables::of($tasks)
-        ->addColumn('titlelink', function ($tasks) {
-                return '<a href="' . route('tasks.show', $tasks->id). '">'.$tasks->title.'</a>';
-        })
-        ->editColumn('created_at', function ($tasks) {
-                return $tasks->created_at ? with(new Carbon($tasks->created_at))
-                ->format('d/m/Y') : '';
-        })
-        ->editColumn('deadline', function ($tasks) {
-                return $tasks->created_at ? with(new Carbon($tasks->created_at))
-                ->format('d/m/Y') : '';
-        })
-        ->make(true);
-    }
-
-    public function clientData($id)
-    {
-        $clients = Client::select(['id', 'name', 'company_name', 'primary_number', 'email'])->where('fk_user_id', $id);
-        return Datatables::of($clients)
-        ->addColumn('clientlink', function ($clients) {
-                return '<a href="' . route('clients.show', $clients->id). '">'.$clients->name.'</a>';
-        })
-        ->editColumn('created_at', function ($clients) {
-                return $clients->created_at ? with(new Carbon($clients->created_at))
-                ->format('d/m/Y') : '';
-        })
-        ->editColumn('deadline', function ($clients) {
-                return $clients->created_at ? with(new Carbon($clients->created_at))
-                ->format('d/m/Y') : '';
-        })
-        ->make(true);
-    }
-
 
     /**
-     * Show the form for creating a new resource.
+     * Json for Data tables.
      *
-     * @return Response
+     * @param $id
+     *
+     * @return mixed
+     */
+    public function taskData($id)
+    {
+        $tasks = Task::select(
+            ['id', 'title', 'created_at', 'deadline', 'user_assigned_id', 'client_id', 'status']
+        )
+            ->where('user_assigned_id', $id);
+
+        return Datatables::of($tasks)
+            ->addColumn('titlelink', function ($tasks) {
+                return '<a href="'.route('tasks.show', $tasks->id).'">'.$tasks->title.'</a>';
+            })
+            ->editColumn('created_at', function ($tasks) {
+                return $tasks->created_at ? with(new Carbon($tasks->created_at))
+                    ->format('d/m/Y') : '';
+            })
+            ->editColumn('deadline', function ($tasks) {
+                return $tasks->deadline ? with(new Carbon($tasks->deadline))
+                    ->format('d/m/Y') : '';
+            })
+            ->editColumn('status', function ($tasks) {
+                return 1 == $tasks->status ? '<span class="label label-success">Open</span>' : '<span class="label label-danger">Closed</span>';
+            })
+            ->editColumn('client_id', function ($tasks) {
+                return $tasks->client->name;
+            })
+            ->make(true);
+    }
+
+    /**
+     * Json for Data tables.
+     *
+     * @param $id
+     *
+     * @return mixed
+     */
+    public function leadData($id)
+    {
+        $leads = Lead::select(
+            ['id', 'title', 'created_at', 'contact_date', 'user_assigned_id', 'client_id', 'status']
+        )
+            ->where('user_assigned_id', $id);
+
+        return Datatables::of($leads)
+            ->addColumn('titlelink', function ($leads) {
+                return '<a href="'.route('leads.show', $leads->id).'">'.$leads->title.'</a>';
+            })
+            ->editColumn('created_at', function ($leads) {
+                return $leads->created_at ? with(new Carbon($leads->created_at))
+                    ->format('d/m/Y') : '';
+            })
+            ->editColumn('contact_date', function ($leads) {
+                return $leads->contact_date ? with(new Carbon($leads->contact_date))
+                    ->format('d/m/Y') : '';
+            })
+            ->editColumn('status', function ($leads) {
+                return 1 == $leads->status ? '<span class="label label-success">Open</span>' : '<span class="label label-danger">Closed</span>';
+            })
+            ->editColumn('client_id', function ($tasks) {
+                return $tasks->client->name;
+            })
+            ->make(true);
+    }
+
+    /**
+     * Json for Data tables.
+     *
+     * @param $id
+     *
+     * @return mixed
+     */
+    public function clientData($id)
+    {
+        $client = Client::select(['id', 'name', 'primary_number', 'primary_email'])->where('user_id', $id);
+
+        return Datatables::of($client)
+            ->addColumn('clientlink', function ($client) {
+                return '<a href="'.route('clients.show', $client->id).'">'.$client->name.'</a>';
+            })
+            ->addColumn('emaillink', function ($client) {
+                return '<a href="mailto:'.$client->primary_email.'">'.$client->primary_email.'</a>';
+            })
+            ->editColumn('created_at', function ($client) {
+                return $client->created_at ? with(new Carbon($client->created_at))
+                    ->format('d/m/Y') : '';
+            })
+            ->make(true);
+    }
+
+    /**
+     * @return mixed
      */
     public function create()
     {
         return view('users.create')
-        ->withRoles($this->roles->listAllRoles())
-        ->withDepartments($this->departments->listAllDepartments());
+            ->withRoles($this->roles->listAllRoles())
+            ->withDepartments($this->departments->listAllDepartments());
     }
 
     /**
-     * Store a newly created resource in storage.
-     * @param User $user
-     * @return Response
+     * @param StoreUserRequest $userRequest
+     *
+     * @return mixed
      */
     public function store(StoreUserRequest $userRequest)
     {
         $getInsertedId = $this->users->create($userRequest);
+
         return redirect()->route('users.index');
     }
 
     /**
-     * Display the specified resource.
+     * @param $id
      *
-     * @param  int  $id
-     * @return Response
+     * @return mixed
      */
     public function show($id)
     {
         return view('users.show')
-        ->withUser($this->users->find($id))
-        ->withCompanyname($this->settings->getCompanyName());
+            ->withUser($this->users->find($id))
+            ->withCompanyname($this->settings->getCompanyName())
+            ->withTaskStatistics($this->tasks->totalOpenAndClosedTasks($id))
+            ->withLeadStatistics($this->leads->totalOpenAndClosedLeads($id));
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * @param $id
      *
-     * @param  int  $id
-     * @return Response
+     * @return mixed
      */
     public function edit($id)
     {
         return view('users.edit')
-        ->withUser($this->users->find($id))
-        ->withRoles($this->roles->listAllRoles())
-        ->withDepartments($this->departments->listAllDepartments());
+            ->withUser($this->users->find($id))
+            ->withRoles($this->roles->listAllRoles())
+            ->withDepartments($this->departments->listAllDepartments());
     }
 
     /**
-     * Update the specified resource in storage.
+     * @param $id
+     * @param UpdateUserRequest $request
      *
-     * @param  int  $id
-     * @return Response
+     * @return mixed
      */
     public function update($id, UpdateUserRequest $request)
     {
         $this->users->update($id, $request);
         Session()->flash('flash_message', 'User successfully updated');
+
         return redirect()->back();
     }
 
     /**
-     * Remove the specified resource from storage.
+     * @param $id
      *
-     * @param  int  $id
-     * @return Response
+     * @return mixed
      */
-    public function destroy($id)
+    public function destroy(Request $request)
     {
-        $this->users->destroy($id);
-        
+        // load the user so we can get relational data
+        $id   = $request->id;
+        $user = User::with('clients', 'tasks', 'leads')->findOrFail($id);
+
+        if ($request->user_clients == $id || $request->user_tasks == $id || $request->user_leads == $id) {
+            Session()->flash('flash_message_warning', 'You may not reassign clients, leads or tasks to the user you are deleting.');
+        } else {
+            // are we keeping her tasks?
+            if ($user->tasks()->count() > 0) {
+                if ('' == $request->user_tasks) {
+                    // just delete all the tasks related to this user
+                    $user->tasks()->delete();
+                } else {
+                    // move all clients to new user
+                    foreach ($user->tasks as $task) {
+                        $task->user_assigned_id = $request->user_tasks;
+                        $task->save();
+                    }
+                }
+            }
+
+            // clean up tasks created but not assigned to the user
+            $tasks = Task::where('user_created_id', $id)->get();
+            if ('' == $request->user_tasks) {
+                foreach ($tasks as $task) {
+                    $task->user_created_id = $task->user_assigned_id;
+                    $task->save();
+                }
+            } else {
+                foreach ($tasks as $task) {
+                    $task->user_created_id = $request->user_tasks;
+                    $task->save();
+                }
+            }
+
+            // refresh the user
+            $user->refresh();
+
+            // are we keeping her leads?
+            if ($user->leads()->count() > 0) {
+                if ('' == $request->user_leads) {
+                    // just delete all the leads related to this user
+                    $user->leads()->delete();
+                } else {
+                    // move all clients to new user
+                    foreach ($user->leads as $lead) {
+                        $lead->user_assigned_id = $request->user_leads;
+                        $lead->save();
+                    }
+                }
+            }
+
+            // clean up leads created but not assigned to the user
+            $leads = Lead::where('user_created_id', $id)->get();
+            if ('' == $request->user_leads) {
+                foreach ($leads as $lead) {
+                    $lead->user_created_id = $lead->user_assigned_id;
+                    $lead->save();
+                }
+            } else {
+                foreach ($leads as $lead) {
+                    $lead->user_created_id = $request->user_leads;
+                    $lead->save();
+                }
+            }
+
+            // refresh the user
+            $user->refresh();
+
+            // are we keeping her clients?
+            if ($user->clients()->count() > 0) {
+                if ('' == $request->user_clients) {
+                    // just delete all the clients related to this user
+                    foreach ($user->clients as $client) {
+                        // clean out all remaining client tasks and leads
+                        $client->tasks()->delete();
+                        $client->leads()->delete();
+                        $client->delete();
+                    }
+                } else {
+                    // move all clients to new user
+                    foreach ($user->clients as $client) {
+                        $client->user_id = $request->user_clients;
+                        $client->save();
+                    }
+                }
+            }
+
+            // refresh the user one more time
+            $user->refresh();
+
+            $user->delete();
+            Session()->flash('flash_message', 'User successfully deleted');
+        }
+
         return redirect()->route('users.index');
     }
 }

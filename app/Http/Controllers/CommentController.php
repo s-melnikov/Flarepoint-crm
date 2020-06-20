@@ -1,28 +1,33 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Auth;
 use Session;
-use App\Models\Tasks;
-use App\Http\Requests;
+use App\Models\Task;
+use App\Models\Lead;
 use App\Models\Comment;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
 
 class CommentController extends Controller
 {
-    public function store(Request $commentRequest, $id)
+    /**
+     * Create a comment for tasks and leads.
+     *
+     * @param Request $request
+     * @param $id
+     *
+     * @return mixed
+     */
+    public function store(Request $request)
     {
-        $this->validate($commentRequest, [
-                'description' => 'required',
-                'fk_task_id' => '',
-                'fk_user_id' => '']);
+        $this->validate($request, [
+            'description' => 'required',
+        ]);
 
-        $input = $commentRequest = array_merge(
-            $commentRequest->all(),
-            ['fk_task_id' => $id, 'fk_user_id' => Auth::id()]
-        );
-        Comment::create($input);
+        $source  = 'task' == $request->type ? Task::find($request->id) : Lead::find($request->id);
+        $comment = $source->addComment(['description' => $request->description, 'user_id' => auth()->user()->id]);
+        event(new \App\Events\NewComment($comment));
         Session::flash('flash_message', 'Comment successfully added!'); //Snippet in Master.blade.php
         return redirect()->back();
     }

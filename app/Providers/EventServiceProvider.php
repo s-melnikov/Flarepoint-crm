@@ -25,18 +25,18 @@ class EventServiceProvider extends ServiceProvider
             'App\Listeners\LeadActionNotify',
             'App\Listeners\LeadActionLog',
         ],
+        'App\Events\NewComment' => [
+            'App\Listeners\NotiftyMentionedUsers',
+        ],
     ];
 
     /**
      * Register any other events for your application.
      *
-     * @param  \Illuminate\Contracts\Events\Dispatcher  $events
-     * @return void
+     * @internal param DispatcherContract $events
      */
     public function boot()
     {
         parent::boot();
-
-        //
     }
 }

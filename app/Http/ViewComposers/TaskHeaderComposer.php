@@ -17,8 +17,7 @@ class TaskHeaderComposer
     /**
      * Create a new profile composer.
      *
-     * @param  taskRepository  $tasks
-     * @return void
+     * @param taskRepository|TaskRepositoryContract $tasks
      */
     public function __construct(TaskRepositoryContract $tasks)
     {
@@ -28,20 +27,19 @@ class TaskHeaderComposer
     /**
      * Bind data to the view.
      *
-     * @param  View  $view
-     * @return void
+     * @param View $view
      */
     public function compose(View $view)
     {
         $tasks = $this->tasks->find($view->getData()['tasks']['id']);
         /**
-         * [User assigned the task]
+         * [User assigned the task].
+         *
          * @var contact
          */
-       
-        $contact = $tasks->assignee;
-        $client = $tasks->clientAssignee;
-        
+        $contact = $tasks->user;
+        $client  = $tasks->client;
+
         $view->with('contact', $contact);
         $view->with('client', $client);
     }

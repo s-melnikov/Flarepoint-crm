@@ -3,54 +3,47 @@
 namespace App\Listeners;
 
 use App\Events\LeadAction;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Models\Activity;
-use Lang;
-use App\Models\Leads;
+use App\Models\Lead;
 
 class LeadActionLog
 {
     /**
      * Action the event listener.
-     *
-     * @return void
      */
     public function __construct()
     {
-        //
     }
 
     /**
      * Handle the event.
      *
-     * @param  LeadAction  $event
-     * @return void
+     * @param LeadAction $event
      */
     public function handle(LeadAction $event)
     {
         switch ($event->getAction()) {
             case 'created':
-                $text = Lang::get('misc.log.lead.created', [
-                    'title' => $event->getLead()->title,
-                    'creator' => $event->getLead()->createdBy->name,
-                    'assignee' => $event->getLead()->assignee->name
+                $text = __(':title was created by :creator and assigned to :assignee', [
+                    'title'    => $event->getLead()->title,
+                    'creator'  => $event->getLead()->creator->name,
+                    'assignee' => $event->getLead()->user->name,
                 ]);
                 break;
             case 'updated_status':
-                $text = Lang::get('misc.log.lead.status', [
+                $text = __('Lead was completed by :username', [
                     'username' => Auth()->user()->name,
                 ]);
                 break;
             case 'updated_deadline':
-                $text = Lang::get('misc.log.lead.deadline', [
+                $text = __(':username updated the deadline for this lead', [
                     'username' => Auth()->user()->name,
                 ]);
                 break;
             case 'updated_assign':
-                $text = Lang::get('misc.log.lead.assign', [
+                $text = __(':username assigned lead to :assignee', [
                     'username' => Auth()->user()->name,
-                    'assignee' => $event->getLead()->assignee->name
+                    'assignee' => $event->getLead()->user->name,
                 ]);
                 break;
             default:
@@ -59,14 +52,14 @@ class LeadActionLog
 
         $activityinput = array_merge(
             [
-                'text' => $text,
-                'user_id' => Auth()->id(),
-                'type' => Leads::class,
-                'type_id' =>  $event->getLead()->id,
-                'action' => $event->getAction()
+                'text'        => $text,
+                'user_id'     => Auth()->id(),
+                'source_type' => Lead::class,
+                'source_id'   => $event->getLead()->id,
+                'action'      => $event->getAction(),
             ]
         );
-        
+
         Activity::create($activityinput);
     }
 }

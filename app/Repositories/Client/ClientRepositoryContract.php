@@ -1,11 +1,11 @@
 <?php
+
 namespace App\Repositories\Client;
 
 interface ClientRepositoryContract
 {
-
     public function find($id);
-    
+
     public function listAllClients();
 
     public function getInvoices($id);

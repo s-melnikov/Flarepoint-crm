@@ -12,13 +12,11 @@ class SettingsTableSeeder extends Seeder
      */
     public function run()
     {
-        
-
         \DB::table('settings')->delete();
         
-        \DB::table('settings')->insert(array (
+        \DB::table('settings')->insert(array(
             0 =>
-            array (
+            array(
                 'id' => 1,
                 'task_complete_allowed' => 2,
                 'task_assign_allowed' => 2,
@@ -26,6 +24,7 @@ class SettingsTableSeeder extends Seeder
                 'lead_assign_allowed' => 2,
                 'time_change_allowed' => 2,
                 'comment_allowed' => 2,
+                'country' => 'en',
                 'company' => 'Media',
                 'created_at' => null,
                 'updated_at' => null,

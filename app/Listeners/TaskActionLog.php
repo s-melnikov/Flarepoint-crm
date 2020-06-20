@@ -3,18 +3,13 @@
 namespace App\Listeners;
 
 use App\Events\TaskAction;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Models\Activity;
-use Lang;
-use App\Models\Tasks;
+use App\Models\Task;
 
 class TaskActionLog
 {
     /**
      * Create the event listener.
-     *
-     * @return void
      */
     public function __construct()
     {
@@ -23,34 +18,33 @@ class TaskActionLog
     /**
      * Handle the event.
      *
-     * @param  TaskAction  $event
-     * @return void
+     * @param TaskAction $event
      */
     public function handle(TaskAction $event)
     {
         switch ($event->getAction()) {
             case 'created':
-                $text = Lang::get('misc.log.task.created', [
-                        'title' => $event->getTask()->title,
-                        'creator' => $event->getTask()->taskCreator->name,
-                        'assignee' => $event->getTask()->assignee->name
+                $text = __(':title was created by :creator and assigned to :assignee', [
+                        'title'    => $event->getTask()->title,
+                        'creator'  => $event->getTask()->creator->name,
+                        'assignee' => $event->getTask()->user->name,
                     ]);
                 break;
             case 'updated_status':
-                $text = Lang::get('misc.log.task.status', [
+                $text = __('Task was completed by :username', [
                         'username' => Auth()->user()->name,
                     ]);
                 break;
             case 'updated_time':
-                $text = Lang::get('misc.log.task.time', [
+                $text = __(':username inserted a new time for this task', [
                         'username' => Auth()->user()->name,
                     ]);
-                ;
+
                 break;
             case 'updated_assign':
-                $text = Lang::get('misc.log.task.assign', [
+                $text = __(':username assigned task to :assignee', [
                         'username' => Auth()->user()->name,
-                        'assignee' => $event->getTask()->assignee->name
+                        'assignee' => $event->getTask()->user->name,
                     ]);
                 break;
             default:
@@ -59,14 +53,14 @@ class TaskActionLog
 
         $activityinput = array_merge(
             [
-                'text' => $text,
-                'user_id' => Auth()->id(),
-                'type' =>  Tasks::class,
-                'type_id' =>  $event->getTask()->id,
-                'action' => $event->getAction()
+                'text'        => $text,
+                'user_id'     => Auth()->id(),
+                'source_type' => Task::class,
+                'source_id'   => $event->getTask()->id,
+                'action'      => $event->getAction(),
             ]
         );
-        
+
         Activity::create($activityinput);
     }
 }
